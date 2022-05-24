@@ -103,7 +103,7 @@ def update(num,data_gt,data_pred,plots_gt,plots_pred,fig,ax):
 def visualize(input_n,output_n,visualize_from,path,modello,device,n_viz,skip_rate,actions):
     
     actions=define_actions(actions)
-    
+    c=0
     for action in actions:
     
         if visualize_from=='train':
@@ -189,7 +189,7 @@ def visualize(input_n,output_n,visualize_from,path,modello,device,n_viz,skip_rat
             line_anim = animation.FuncAnimation(fig, update, output_n, fargs=(data_gt,data_pred,gt_plots,pred_plots,
                                                                        fig,ax),interval=70, blit=False)
             plt.show()
-            
+            name = 'gifs/'+str(c)+'.gif'
             line_anim.save('human_viz.gif',writer='pillow')
     
             
