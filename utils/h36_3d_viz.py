@@ -190,7 +190,8 @@ def visualize(input_n,output_n,visualize_from,path,modello,device,n_viz,skip_rat
                                                                        fig,ax),interval=70, blit=False)
             plt.show()
             name = 'gifs/'+str(c)+'.gif'
-            line_anim.save('human_viz.gif',writer='pillow')
+            c+=1
+            line_anim.save(name,writer='pillow')
     
             
             if cnt==n_viz-1:
