@@ -53,29 +53,33 @@ def train():
                     75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92])
 
 
-
+    criterion = nn.CrossEntropyLoss()
     for epoch in range(args.n_epochs):
       running_loss=0
       n=0
       model.train()
-      for cnt,batch in enumerate(data_loader): 
+      for cnt,(batch,labels) in enumerate(data_loader): 
           batch=batch.to(device)
+          labels=labels.to(device)
           batch_dim=batch.shape[0]
           n+=batch_dim
-          
           sequences_train=batch[:, 0:args.input_n, dim_used].view(-1,args.input_n,len(dim_used)//3,3).permute(0,3,1,2)
           sequences_gt=batch[:, args.input_n:args.input_n+args.output_n, dim_used].view(-1,args.output_n,len(dim_used)//3,3)
 
 
           optimizer.zero_grad() 
 
-          sequences_predict=model(sequences_train).permute(0,1,3,2)
-          
-          loss=mpjpe_error(sequences_predict,sequences_gt)
+          sequences_predict,class_predict=model(sequences_train)
+          sequences_predict = sequences_predict.permute(0,1,3,2)
 
+
+          loss1=mpjpe_error(sequences_predict,sequences_gt)
+          loss2=criterion(class_predict,labels).to(device)
+          alpha = 1
+          loss = (1-alpha)*loss1+alpha*loss2
 
           if cnt % 200 == 0:
-            print('[%d, %5d]  training loss: %.3f' %(epoch + 1, cnt + 1, loss.item())) 
+            print('[%d, %5d]  training loss: %.3f, skele loss: %.3f, class loss: %.3f,' %(epoch + 1, cnt + 1, loss.item(), loss1.item(),loss2.item())) 
 
           loss.backward()  
           if args.clip_grad is not None:
@@ -85,12 +89,13 @@ def train():
           running_loss += loss*batch_dim
 
       train_loss.append(running_loss.detach().cpu()/n)  
-      model .eval()
+      model.eval()
       with torch.no_grad():
           running_loss=0 
           n=0
-          for cnt,batch in enumerate(vald_loader):
+          for cnt,(batch,labels) in enumerate(vald_loader):
               batch=batch.to(device)
+              labels=labels.to(device)
               batch_dim=batch.shape[0]
               n+=batch_dim
               
@@ -99,12 +104,16 @@ def train():
               sequences_gt=batch[:, args.input_n:args.input_n+args.output_n, dim_used].view(-1,args.output_n,len(dim_used)//3,3)
 
 
-              sequences_predict=model(sequences_train).permute(0,1,3,2)
+              sequences_predict,class_predict=model(sequences_train)
+              sequences_predict = sequences_predict.permute(0,1,3,2)
 
 
-              loss=mpjpe_error(sequences_predict,sequences_gt)
+              loss1=mpjpe_error(sequences_predict,sequences_gt)
+              loss2=criterion(class_predict,labels).to(device)
+              alpha = 1
+              loss = (1-alpha)*loss1+alpha*loss2
               if cnt % 200 == 0:
-                        print('[%d, %5d]  validation loss: %.3f' %(epoch + 1, cnt + 1, loss.item())) 
+                        print('[%d, %5d]  validation loss: %.3f, skele loss: %.3f, class loss: %.3f,' %(epoch + 1, cnt + 1, loss.item(), loss1.item(),loss2.item()))
               running_loss+=loss*batch_dim
           val_loss.append(running_loss.detach().cpu()/n)
       if args.use_scheduler:
@@ -115,7 +124,14 @@ def train():
         print('----saving model-----')
         torch.save(model.state_dict(),os.path.join(args.model_path,model_name))
 
-        
+        t=[]
+        v=[]
+        for i in train_loss:
+          t.append(round(float(i), 3))
+        for i in val_loss:
+          v.append(round(float(i), 3))
+        print(t)
+        print(v)
         plt.figure(1)
         plt.plot(train_loss, 'r', label='Train loss')
         plt.plot(val_loss, 'g', label='Val loss')
@@ -189,6 +205,3 @@ if __name__ == '__main__':
        model.load_state_dict(torch.load(os.path.join(args.model_path,model_name)))
        model.eval()
        visualize(args.input_n,args.output_n,args.visualize_from,args.data_dir,model,device,args.n_viz,args.skip_rate,args.actions_to_consider)
-
-
-
