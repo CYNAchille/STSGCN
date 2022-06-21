@@ -33,14 +33,16 @@ class Datasets(Dataset):
         self.sample_rate = 2
         self.p3d = {}
         self.data_idx = []
+        self.label = {}
         seq_len = self.in_n + self.out_n
         subs = np.array([[1, 6, 7, 8, 9], [11], [5]])
         # acts = data_utils.define_actions(actions)
-        if actions is None:
-            acts = ["walking", "eating", "smoking", "discussion", "directions",
+        acts_all = ["walking", "eating", "smoking", "discussion", "directions",
                     "greeting", "phoning", "posing", "purchases", "sitting",
                     "sittingdown", "takingphoto", "waiting", "walkingdog",
                     "walkingtogether"]
+        if actions is None:
+            acts = acts_all
         else:
             acts = actions
         # subs = np.array([[1], [11], [5]])
@@ -59,9 +61,11 @@ class Datasets(Dataset):
         for subj in subs:
             for action_idx in np.arange(len(acts)):
                 action = acts[action_idx]
+                act_idx = acts_all.index(action)
                 if self.split <= 1:
                     for subact in [1, 2]:  # subactions
                         print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, subact))
+                        self.label[key]=(act_idx)
                         filename = '{0}/S{1}/{2}_{3}.txt'.format(self.path_to_data, subj, action, subact)
                         the_sequence = data_utils.readCSVasFloat(filename)
                         n, d = the_sequence.shape
@@ -80,7 +84,7 @@ class Datasets(Dataset):
                         # tmp_data_idx_1 = [(subj, action, subact)] * len(valid_frames)
                         tmp_data_idx_1 = [key] * len(valid_frames)
                         tmp_data_idx_2 = list(valid_frames)
-                        self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2))
+                        self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2,[act_idx]* len(valid_frames)))
                         key += 1
                 else:
                     print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, 1))
@@ -95,6 +99,7 @@ class Datasets(Dataset):
                     the_seq1[:, 0:6] = 0
                     p3d1 = data_utils.expmap2xyz_torch(the_seq1)
                     # self.p3d[(subj, action, 1)] = p3d1.view(num_frames1, -1).cpu().data.numpy()
+                    self.label[key]=(act_idx)
                     self.p3d[key] = p3d1.view(num_frames1, -1).cpu().data.numpy()
 
                     print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, 2))
@@ -110,6 +115,7 @@ class Datasets(Dataset):
                     p3d2 = data_utils.expmap2xyz_torch(the_seq2)
 
                     # self.p3d[(subj, action, 2)] = p3d2.view(num_frames2, -1).cpu().data.numpy()
+                    self.label[key+1]=(act_idx)
                     self.p3d[key + 1] = p3d2.view(num_frames2, -1).cpu().data.numpy()
 
                     # print("action:{}".format(action))
@@ -121,12 +127,12 @@ class Datasets(Dataset):
                     valid_frames = fs_sel1[:, 0]
                     tmp_data_idx_1 = [key] * len(valid_frames)
                     tmp_data_idx_2 = list(valid_frames)
-                    self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2))
+                    self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2,[act_idx]* len(valid_frames)))
 
                     valid_frames = fs_sel2[:, 0]
                     tmp_data_idx_1 = [key + 1] * len(valid_frames)
                     tmp_data_idx_2 = list(valid_frames)
-                    self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2))
+                    self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2,[act_idx]* len(valid_frames)))
                     key += 2
 
         # ignore constant joints and joints at same position with other joints
@@ -138,6 +144,6 @@ class Datasets(Dataset):
         return np.shape(self.data_idx)[0]
 
     def __getitem__(self, item):
-        key, start_frame = self.data_idx[item]
+        key, start_frame,label = self.data_idx[item]
         fs = np.arange(start_frame, start_frame + self.in_n + self.out_n)
-        return self.p3d[key][fs]
+        return self.p3d[key][fs],label
