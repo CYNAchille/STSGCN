@@ -5,7 +5,7 @@
 import torch
 import torch.nn as nn
 import math
-
+import torch.nn.functional as F
 
 
 
@@ -202,6 +202,7 @@ class Model(nn.Module):
                  n_txcnn_layers,
                  txc_kernel_size,
                  txc_dropout,
+                 num_class=15,
                  bias=True):
         
         super(Model,self).__init__()
@@ -235,21 +236,32 @@ class Model(nn.Module):
         for j in range(n_txcnn_layers):
             self.prelus.append(nn.PReLU())
 
+        self.fcn = nn.Linear(64, num_class)
+
 
         
 
     def forward(self, x):
-        for gcn in (self.st_gcnns):
-            x = gcn(x)
-            
+        N, C, T, V = x.size()
+        x = self.st_gcnns[0](x)
+        x = self.st_gcnns[1](x)
+        x = self.st_gcnns[2](x)
+
+        y = F.avg_pool2d(x, x.size()[2:])
+        y = y.view(N, -1)
+
+        y = self.fcn(y)
+
+
+        x = self.st_gcnns[3](x)
+
         x= x.permute(0,2,1,3) # prepare the input for the Time-Extrapolator-CNN (NCTV->NTCV)
-        
         x=self.prelus[0](self.txcnns[0](x))
         
         for i in range(1,self.n_txcnn_layers):
             x = self.prelus[i](self.txcnns[i](x)) +x # residual connection
             
-        return x
+        return x,y
         
 
 
