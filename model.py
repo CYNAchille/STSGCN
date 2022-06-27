@@ -223,7 +223,8 @@ class Model(nn.Module):
                                                joints_to_consider,st_gcnn_dropout))
                                                
         self.st_gcnns.append(ST_GCNN_layer(64,input_channels,[1,1],1,input_time_frame,
-                                               joints_to_consider,st_gcnn_dropout))                                               
+                                               joints_to_consider,st_gcnn_dropout))
+                                                                               
                 
                 
                 # at this point, we must permute the dimensions of the gcn network, from (N,C,T,V) into (N,T,C,V)           
@@ -261,7 +262,7 @@ class Model(nn.Module):
         for i in range(1,self.n_txcnn_layers):
             x = self.prelus[i](self.txcnns[i](x)) +x # residual connection
             
-        return x,y
+        return x,F.log_softmax(y)
         
 
 
